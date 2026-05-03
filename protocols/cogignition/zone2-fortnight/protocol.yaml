@@ -101,7 +101,7 @@ views:
         k: 1.0
         style: { role: band, opacity: 0.15 }
     axes:
-      x: { kind: time, format: "MMM d" }
+      x: { kind: time, format: "M.d" }
       y: { kind: numeric, unit: ms, zero: false }
 
   - id: sleep_stages
@@ -134,7 +134,7 @@ views:
         label: "+5 bpm gate"
         style: { role: warning }
     axes:
-      x: { kind: time, format: "MMM d" }
+      x: { kind: time, format: "M.d" }
       y: { kind: numeric, unit: bpm, zero: false }
 
 # Workflows describe triggerable behaviors. A runtime (skill, app, or
