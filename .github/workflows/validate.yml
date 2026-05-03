@@ -1,0 +1,27 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: install deps
+        run: pip install pyyaml jsonschema
+
+      - name: validate all protocols
+        env:
+          # Pin to a tag/SHA once the spec is versioned. Until then, main.
+          SPEC_REF: main
+        run: python tools/validate.py

@@ -1,0 +1,11 @@
+.DS_Store
+*.log
+.env
+.omc/
+.claude/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Render output — built by the Pages workflow on push, not committed.
+dist/
