@@ -21,7 +21,4 @@ jobs:
         run: pip install pyyaml jsonschema
 
       - name: validate all protocols
-        env:
-          # Pin to a tag/SHA once the spec is versioned. Until then, main.
-          SPEC_REF: main
         run: python tools/validate.py

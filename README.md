@@ -1,7 +1,7 @@
 # Hegemonikron Protocols
 
 Public catalog of coaching protocols authored against the
-[Hegemonikron Spec](https://github.com/cogignition/hegemonikron-spec).
+Hegemonikron Spec (bundled in [`spec/`](spec/) in this repo).
 
 Each protocol is a YAML file declaring inputs (against the canonical
 metric vocabulary), workflows with cadence + rules, and output
@@ -34,9 +34,10 @@ with the rendering site.
 
 ## Authoring a new protocol
 
-1. Read the [spec](https://github.com/cogignition/hegemonikron-spec) —
-   especially `schema/vocabulary.yaml` (what metrics exist) and
-   `schema/protocol.schema.json` (what shape your YAML must take).
+1. Read the spec bundled in this repo at [`spec/`](spec/) —
+   especially [`spec/vocabulary.yaml`](spec/vocabulary.yaml) (what
+   metrics exist) and [`spec/protocol.schema.json`](spec/protocol.schema.json)
+   (what shape your YAML must take).
 2. Fork this repo.
 3. Create `protocols/<your-handle>/<protocol-slug>/protocol.yaml`. The
    path components MUST match `metadata.author` and `metadata.id` in
@@ -60,9 +61,9 @@ curl https://raw.githubusercontent.com/cogignition/protocols/main/protocols/cogi
 ```
 
 In a runtime, parse the YAML, validate against
-`hegemonikron-spec/schema/protocol.schema.json`, then evaluate
-workflows by feeding the declared `inputs` through your configured
-adapters.
+[`spec/protocol.schema.json`](spec/protocol.schema.json), then
+evaluate workflows by feeding the declared `inputs` through your
+configured adapters.
 
 ## License
 
@@ -72,7 +73,6 @@ CONTRIBUTING.md) is licensed CC-BY-4.0; see [`LICENSE`](LICENSE).
 
 ## Related
 
-- [`cogignition/hegemonikron-spec`](https://github.com/cogignition/hegemonikron-spec) — the contract this catalog speaks.
-- [`cogignition/hegemonikron-skills`](https://github.com/cogignition/hegemonikron-skills) — installable skills that consume protocols (coming soon).
-- [`cogignition/hegemonikron`](https://github.com/cogignition/hegemonikron) — reference Mac + iOS app (coming soon).
-- [`cogignition/hegemonikron-site`](https://github.com/cogignition/hegemonikron-site) — k8s + cloudflared infra serving `protocols.cogignition.cloud` (coming soon).
+- The Hegemonikron application stack (spec, skills, app) is a
+  separate, proprietary product. This catalog is the open piece —
+  the schema needed to author against it is bundled here.

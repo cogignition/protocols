@@ -1,7 +1,7 @@
 # Contributing a protocol
 
-Protocols are pure YAML files validated by CI against the
-[Hegemonikron Spec](https://github.com/cogignition/hegemonikron-spec).
+Protocols are pure YAML files validated by CI against the bundled
+Hegemonikron Spec schemas under [`spec/`](spec/) in this repo.
 No code, no tooling, no rendering — just YAML.
 
 ## Workflow
@@ -21,10 +21,10 @@ No code, no tooling, no rendering — just YAML.
 Every push and PR runs `.github/workflows/validate.yml`, which:
 
 1. **Schema:** validates each `protocol.yaml` against
-   [`schema/protocol.schema.json`](https://github.com/cogignition/hegemonikron-spec/blob/main/schema/protocol.schema.json)
-   from the spec repo (pinned to `main` for now).
+   [`spec/protocol.schema.json`](spec/protocol.schema.json) bundled
+   in this repo.
 2. **Vocabulary:** every `inputs[*].metric` must exist in
-   [`schema/vocabulary.yaml`](https://github.com/cogignition/hegemonikron-spec/blob/main/schema/vocabulary.yaml).
+   [`spec/vocabulary.yaml`](spec/vocabulary.yaml).
 3. **License:** `metadata.license` must be one of:
    - `CC-BY-4.0` (default; recommended)
    - `CC-BY-SA-4.0` (share-alike)

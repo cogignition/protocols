@@ -22,28 +22,27 @@ Usage:
 from __future__ import annotations
 
 import json
-import os
 import re
 import sys
 from pathlib import Path
-from urllib.request import urlopen
 
 try:
     import yaml
 except ImportError:
-    sys.exit("ERROR: pyyaml not installed. Run: pip install pyyaml jsonschema requests")
+    sys.exit("ERROR: pyyaml not installed. Run: pip install pyyaml jsonschema")
 
 try:
     import jsonschema
 except ImportError:
-    sys.exit("ERROR: jsonschema not installed. Run: pip install pyyaml jsonschema requests")
+    sys.exit("ERROR: jsonschema not installed. Run: pip install pyyaml jsonschema")
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-SPEC_REPO = "cogignition/hegemonikron-spec"
-SPEC_REF = os.environ.get("SPEC_REF", "main")
-SPEC_RAW = f"https://raw.githubusercontent.com/{SPEC_REPO}/{SPEC_REF}"
+# Schemas are bundled in `spec/` so this repo doesn't depend on a
+# private upstream. Update the bundled copies when the canonical
+# schema in the (private) spec repo changes.
+SPEC_DIR = REPO_ROOT / "spec"
 
 ALLOWED_LICENSES = {"CC-BY-4.0", "CC-BY-SA-4.0", "CC0-1.0", "Apache-2.0"}
 
@@ -52,20 +51,10 @@ PATH_PATTERN = re.compile(
 )
 
 
-def fetch(url: str) -> bytes:
-    """Fetch a URL, return body. Raises on non-200."""
-    with urlopen(url, timeout=30) as resp:
-        if resp.status != 200:
-            raise RuntimeError(f"GET {url} -> HTTP {resp.status}")
-        return resp.read()
-
-
 def load_spec() -> tuple[dict, dict]:
-    """Load protocol schema + vocabulary from the spec repo."""
-    schema_url = f"{SPEC_RAW}/schema/protocol.schema.json"
-    vocab_url = f"{SPEC_RAW}/schema/vocabulary.yaml"
-    schema = json.loads(fetch(schema_url))
-    vocab = yaml.safe_load(fetch(vocab_url))
+    """Load the bundled protocol schema + vocabulary."""
+    schema = json.loads((SPEC_DIR / "protocol.schema.json").read_text())
+    vocab = yaml.safe_load((SPEC_DIR / "vocabulary.yaml").read_text())
     return schema, vocab
 
 
@@ -152,7 +141,7 @@ def main(argv: list[str]) -> int:
         print("no protocols found")
         return 0
 
-    print(f"loading spec from {SPEC_RAW}")
+    print(f"loading bundled spec from {SPEC_DIR.relative_to(REPO_ROOT)}/")
     schema, vocab = load_spec()
     print(f"validating {len(targets)} protocol(s)")
     print()

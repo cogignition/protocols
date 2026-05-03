@@ -32,8 +32,6 @@ jobs:
         run: pip install pyyaml jsonschema
 
       - name: validate (same checks as validate.yml; fail fast before render)
-        env:
-          SPEC_REF: main
         run: python tools/validate.py
 
       - name: render catalog → dist/

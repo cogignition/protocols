@@ -75,6 +75,68 @@ inputs:
     aggregation: sum
     window: today
 
+# Views declare deterministic chart specs. Workflow rules can surface
+# specific views by id; runtimes that support charting render them via
+# Swift Charts (or any equivalent toolkit). The math (bucketing, rolling
+# baselines, bands) is fully described here — runtimes don't synthesize
+# new transformations.
+views:
+
+  - id: hrv_trend
+    title: "HRV — 14d trend vs fortnight baseline"
+    kind: line
+    window: { duration: 14d, step: 1d }
+    series:
+      - metric: hrv
+        aggregate: daily_mean
+        style: { role: primary }
+      - derived: rolling_mean
+        of: hrv
+        window: 14d
+        style: { role: baseline, dash: true }
+      - derived: rolling_band
+        of: hrv
+        window: 14d
+        kind: stddev
+        k: 1.0
+        style: { role: band, opacity: 0.15 }
+    axes:
+      x: { kind: time, format: "MMM d" }
+      y: { kind: numeric, unit: ms, zero: false }
+
+  - id: sleep_stages
+    title: "Sleep stages — last 7 nights"
+    kind: stacked_bar
+    window: { duration: 7d, step: 1d }
+    series:
+      - metric: sleep_total
+        aggregate: sum
+        group_by: stage
+    axes:
+      x: { kind: time, format: "EEE" }
+      y: { kind: numeric, unit: min }
+
+  - id: rhr_drift
+    title: "Resting HR — drift vs baseline"
+    kind: line
+    window: { duration: 14d, step: 1d }
+    series:
+      - metric: resting_heart_rate
+        aggregate: daily_mean
+        style: { role: primary }
+      - derived: rolling_mean
+        of: resting_heart_rate
+        window: 14d
+        style: { role: baseline, dash: true }
+    annotations:
+      - kind: rule_h
+        value_from: { protocol_input: resting_hr_baseline, offset: 5 }
+        label: "+5 bpm gate"
+        style: { role: warning }
+    axes:
+      x: { kind: time, format: "MMM d" }
+      y: { kind: numeric, unit: bpm, zero: false }
+
 # Workflows describe triggerable behaviors. A runtime (skill, app, or
 # routine) consumes the cadence and inputs, evaluates rules, and
 # produces output. Each workflow is independent; protocols can mix many.
@@ -88,26 +150,32 @@ workflows:
       - sleep_hours
       - resting_hr_today
       - resting_hr_baseline
+    views:
+      - hrv_trend
     rules:
       - if: "hrv_today / hrv_baseline < 0.85"
         then:
           intensity_cap: zone_2_only
           dominant_signal: hrv
           reason: "HRV below 85% of fortnight baseline"
+          views: [hrv_trend, sleep_stages]
       - if: "sleep_hours < 6"
         then:
           intensity_cap: cap_at_zone_3
           dominant_signal: sleep
           reason: "Sleep deficit; recovery insufficient for above-aerobic work"
+          views: [sleep_stages, hrv_trend]
       - if: "resting_hr_today > resting_hr_baseline + 5"
         then:
           intensity_cap: cap_at_zone_3
           dominant_signal: rhr
           reason: "Resting HR elevated >5bpm vs baseline; possible accumulating fatigue"
+          views: [rhr_drift, hrv_trend]
       - else:
           intensity_cap: full_protocol
           dominant_signal: composite
           reason: "All recovery markers within range"
+          views: [hrv_trend]
     output:
       style: "morning brief, 3 sentences, no filler, no hedging"
       mention:

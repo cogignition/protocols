@@ -1,0 +1,353 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hegemonikron.cogignition.cloud/v1/protocol.schema.json",
+  "title": "Hegemonikron Protocol",
+  "description": "A coaching protocol: declared inputs against the canonical vocabulary, plus workflows that consume those inputs and produce coaching output.",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "inputs", "workflows"],
+  "additionalProperties": false,
+  "$defs": {
+    "window": {
+      "type": "object",
+      "required": ["duration"],
+      "additionalProperties": false,
+      "properties": {
+        "duration": {
+          "type": "string",
+          "pattern": "^\\d+[hdwm]$",
+          "description": "Total span back from now (e.g. 14d, 12w, 24h)."
+        },
+        "step": {
+          "type": "string",
+          "pattern": "^\\d+[hdwm]$",
+          "description": "Bucket size; defaults to 1d when omitted."
+        }
+      }
+    },
+    "axisSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "enum": ["time", "numeric", "category"] },
+        "format": { "type": "string", "description": "Date or number format hint, e.g. 'MMM d', 'EEE', '%.0f'." },
+        "unit": { "type": "string", "description": "Display unit suffix (ms, bpm, min, g, kcal, hr)." },
+        "nice": { "type": "boolean", "default": true },
+        "zero": { "type": "boolean", "description": "Force the axis to include zero." },
+        "label": { "type": "string" }
+      }
+    },
+    "valueRef": {
+      "description": "Either a literal number, a reference to a protocol input, or a reference to a workflow decision payload key.",
+      "oneOf": [
+        { "type": "number" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["protocol_input"],
+          "properties": {
+            "protocol_input": { "type": "string", "description": "Name of a top-level input." },
+            "divide_by":      { "type": "number" },
+            "multiply_by":    { "type": "number" },
+            "offset":         { "type": "number" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["constant"],
+          "properties": { "constant": { "type": "number" } }
+        }
+      ]
+    },
+    "seriesStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": ["primary", "secondary", "baseline", "band", "accent", "warning"],
+          "default": "primary"
+        },
+        "dash":    { "type": "boolean", "default": false },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "width":   { "type": "number", "minimum": 0 }
+      }
+    },
+    "seriesAggregate": {
+      "type": "string",
+      "enum": [
+        "latest", "daily_mean", "daily_max", "daily_min",
+        "sum", "count", "nonzero_count"
+      ]
+    },
+    "derivedKind": {
+      "type": "string",
+      "enum": [
+        "rolling_mean", "rolling_median", "rolling_band",
+        "delta", "cumulative", "zscore"
+      ]
+    },
+    "series": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["metric"],
+          "additionalProperties": false,
+          "properties": {
+            "metric":    { "type": "string", "description": "Canonical metric name." },
+            "aggregate": { "$ref": "#/$defs/seriesAggregate", "default": "daily_mean" },
+            "field":     { "type": "string" },
+            "filter": {
+              "type": "object",
+              "description": "Equality filter on event subfields (e.g. { zone: 2 } on workout_hr_zone_minutes).",
+              "additionalProperties": { "type": ["string","number","boolean"] }
+            },
+            "group_by": { "type": "string", "description": "Dimension to split a stacked series by (e.g. 'stage', 'zone')." },
+            "label":    { "type": "string" },
+            "style":    { "$ref": "#/$defs/seriesStyle" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["derived", "of"],
+          "additionalProperties": false,
+          "properties": {
+            "derived": { "$ref": "#/$defs/derivedKind" },
+            "of":      { "type": "string", "description": "Canonical metric the derived series is computed over." },
+            "aggregate": { "$ref": "#/$defs/seriesAggregate", "default": "daily_mean" },
+            "window": {
+              "type": "string",
+              "pattern": "^\\d+[hdwm]$",
+              "description": "Rolling window for the derivation (e.g. 7d)."
+            },
+            "kind": {
+              "type": "string",
+              "enum": ["stddev", "percentile"],
+              "description": "For rolling_band: how the band is computed."
+            },
+            "k":    { "type": "number", "description": "Multiplier for stddev bands or percentile (0..1)." },
+            "label":{ "type": "string" },
+            "style":{ "$ref": "#/$defs/seriesStyle" }
+          }
+        }
+      ]
+    },
+    "annotation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "value"],
+          "additionalProperties": false,
+          "properties": {
+            "kind":  { "type": "string", "enum": ["rule_h", "rule_v"] },
+            "value": { "$ref": "#/$defs/valueRef" },
+            "label": { "type": "string" },
+            "style": { "$ref": "#/$defs/seriesStyle" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "value_from"],
+          "additionalProperties": false,
+          "properties": {
+            "kind":       { "type": "string", "enum": ["rule_h", "rule_v"] },
+            "value_from": { "$ref": "#/$defs/valueRef" },
+            "label":      { "type": "string" },
+            "style":      { "$ref": "#/$defs/seriesStyle" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "from", "to"],
+          "additionalProperties": false,
+          "properties": {
+            "kind":  { "type": "string", "enum": ["range_band"] },
+            "from":  { "$ref": "#/$defs/valueRef" },
+            "to":    { "$ref": "#/$defs/valueRef" },
+            "label": { "type": "string" },
+            "style": { "$ref": "#/$defs/seriesStyle" }
+          }
+        }
+      ]
+    },
+    "view": {
+      "type": "object",
+      "required": ["id", "kind", "window", "series"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]*$",
+          "description": "Stable identifier, referenced from workflow decision payloads."
+        },
+        "title":    { "type": "string" },
+        "subtitle": { "type": "string" },
+        "kind": {
+          "type": "string",
+          "enum": ["line", "area", "bar", "stacked_bar", "scatter", "rule_band"]
+        },
+        "window": { "$ref": "#/$defs/window" },
+        "series": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/series" }
+        },
+        "axes": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "x": { "$ref": "#/$defs/axisSpec" },
+            "y": { "$ref": "#/$defs/axisSpec" }
+          }
+        },
+        "annotations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/annotation" }
+        }
+      }
+    }
+  },
+  "properties": {
+    "apiVersion": {
+      "const": "hegemonikron.cogignition.cloud/v1"
+    },
+    "kind": {
+      "const": "Protocol"
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["id", "title", "author"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Slug used in URLs. Lowercase, dash-separated."
+        },
+        "title": { "type": "string", "minLength": 1 },
+        "author": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Author handle (matches the path namespace in the catalog)."
+        },
+        "description": { "type": "string" },
+        "license": {
+          "type": "string",
+          "enum": ["CC-BY-4.0", "CC-BY-SA-4.0", "CC0-1.0", "Apache-2.0"],
+          "default": "CC-BY-4.0"
+        },
+        "references": {
+          "type": "array",
+          "items": { "type": "string", "format": "uri" }
+        },
+        "created": { "type": "string", "format": "date" },
+        "version": { "type": "string", "description": "Free-form version string (e.g., '1.0', '2026-05-03'). Distinct from apiVersion." }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "description": "Map of local input name -> metric query against the canonical vocabulary.",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["metric"],
+        "additionalProperties": false,
+        "properties": {
+          "metric": {
+            "type": "string",
+            "description": "Canonical metric name from schema/vocabulary.yaml."
+          },
+          "aggregation": {
+            "type": "string",
+            "enum": ["latest", "mean", "median", "min", "max", "sum", "count", "list"],
+            "default": "latest"
+          },
+          "window": {
+            "type": "string",
+            "description": "Symbolic window (today, last_night, last_workout) or relative (e.g., 14d, 24h, 4w).",
+            "anyOf": [
+              { "enum": ["today", "last_night", "last_workout"] },
+              { "pattern": "^\\d+[hdwm]$" }
+            ]
+          },
+          "field": {
+            "type": "string",
+            "description": "For event-kind metrics: which subfield of the event to read (e.g., 'duration', 'hr_avg')."
+          }
+        }
+      }
+    },
+    "views": {
+      "type": "array",
+      "description": "Optional chart specs. Each entry declares a deterministic time-series view that runtimes can render via Swift Charts (or any other charting toolkit). Workflow rules can reference views by id to surface them alongside the brief.",
+      "items": { "$ref": "#/$defs/view" }
+    },
+    "workflows": {
+      "type": "object",
+      "description": "Named workflows. Each describes a triggerable behavior with a cadence, inputs (referencing top-level inputs), rules, and output template.",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["cadence"],
+        "additionalProperties": false,
+        "properties": {
+          "cadence": {
+            "type": "string",
+            "description": "When this workflow fires. Examples: 'daily@07:30', 'on_workout_complete', 'weekly@sunday@18:00', 'on_demand'.",
+            "examples": [
+              "daily@07:30",
+              "weekly@sunday@18:00",
+              "on_workout_complete",
+              "on_hrv_below_baseline",
+              "on_demand"
+            ]
+          },
+          "inputs": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Names of top-level inputs this workflow uses."
+          },
+          "views": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Default view ids surfaced for every firing of this workflow (runs even when no rule matches)."
+          },
+          "rules": {
+            "type": "array",
+            "description": "Ordered rule list. Each rule is { if, then } or { else } (terminal). `then`/`else` may include a top-level `views: [id, ...]` array to surface specific charts.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "if": { "type": "string", "description": "Boolean expression over inputs." },
+                "then": { "type": "object", "description": "Decision payload (free-form; consumed by output)." },
+                "else": { "type": "object", "description": "Default decision payload (terminal rule)." }
+              },
+              "oneOf": [
+                { "required": ["if", "then"] },
+                { "required": ["else"] }
+              ]
+            }
+          },
+          "output": {
+            "type": "object",
+            "description": "How to render the workflow's outcome. The runtime's edge model fills in prose given style/mention constraints.",
+            "additionalProperties": false,
+            "properties": {
+              "style": { "type": "string", "description": "Voice/length guidance, e.g., 'morning brief, 3 sentences, no filler'." },
+              "mention": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Names the output must reference (rule decision keys, input names)."
+              },
+              "template": {
+                "type": "string",
+                "description": "Optional explicit template with {{placeholders}}. If absent, runtime synthesizes from style + mention."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
