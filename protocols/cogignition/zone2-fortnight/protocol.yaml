@@ -75,6 +75,85 @@ inputs:
     aggregation: sum
     window: today
 
+  steps_today:
+    metric: step_count
+    aggregation: sum
+    window: today
+
+  active_energy_today:
+    metric: active_energy
+    aggregation: sum
+    window: today
+
+# Exercises this protocol can recommend. Workflows narrow the eligible
+# subset via `recommend: [id, ...]` on rule decisions; the runtime's
+# edge model picks one given the current context.
+exercises:
+  - id: rest
+    label: "Rest the rest of today"
+    description: "No structured exercise — passive recovery."
+    duration_min: 0
+    intensity: none
+    fatigue: none
+
+  - id: walk30
+    label: "30-min easy walk"
+    description: "Outdoor or treadmill walk at conversational pace."
+    duration_min: 30
+    intensity: zone_1
+    fatigue: minimal
+    modality: walk
+
+  - id: mobility20
+    label: "20-min mobility flow"
+    description: "Hip openers, thoracic mobility, ankle work, light core."
+    duration_min: 20
+    intensity: zone_1
+    fatigue: minimal
+    modality: mobility
+
+  - id: z2_ride45
+    label: "45-min Zone 2 ride"
+    description: "Steady aerobic ride at the high end of Zone 2."
+    duration_min: 45
+    intensity: zone_2
+    fatigue: low
+    modality: bike
+
+  - id: z2_ride75
+    label: "75-min Zone 2 ride"
+    description: "Longer aerobic ride; treat as a base session."
+    duration_min: 75
+    intensity: zone_2
+    fatigue: medium
+    modality: bike
+    when: "fed within the last 90 min and >300 kcal in the bank"
+
+  - id: strength_pull
+    label: "Strength: pull day"
+    description: "Compound pulls (rows, pulldowns, RDL) plus assistance."
+    duration_min: 60
+    intensity: anaerobic
+    fatigue: high
+    modality: strength
+
+  - id: strength_push
+    label: "Strength: push day"
+    description: "Compound pushes (bench, OHP, dips) plus assistance."
+    duration_min: 60
+    intensity: anaerobic
+    fatigue: high
+    modality: strength
+
+  - id: hiit_intervals20
+    label: "20-min Zone 4/5 intervals"
+    description: "Hard intervals; only when full_protocol is unlocked AND fueled."
+    duration_min: 20
+    intensity: zone_4_5
+    fatigue: very_high
+    modality: bike
+    when: "≥150g carbs in the day and HRV at or above baseline"
+
 # Views declare deterministic chart specs. Workflow rules can surface
 # specific views by id; runtimes that support charting render them via
 # Swift Charts (or any equivalent toolkit). The math (bucketing, rolling
@@ -205,6 +284,66 @@ workflows:
       mention:
         - status
         - note
+
+  in_flight_check:
+    cadence: on_demand
+    inputs:
+      - hrv_today
+      - hrv_baseline
+      - sleep_hours
+      - resting_hr_today
+      - resting_hr_baseline
+      - workouts_today
+      - protein_today
+      - carbohydrates_today
+      - steps_today
+      - active_energy_today
+    views:
+      - hrv_trend
+    rules:
+      - if: "hrv_today / hrv_baseline < 0.85"
+        then:
+          intensity_cap: zone_2_only
+          dominant_signal: hrv
+          reason: "HRV below 85% of fortnight baseline"
+          recommend: [rest, walk30, mobility20, z2_ride45]
+          views: [hrv_trend]
+      - if: "len(workouts_today) >= 2"
+        then:
+          intensity_cap: rest
+          dominant_signal: workload
+          reason: "Two-a-day already complete; cap further work"
+          recommend: [rest, walk30, mobility20]
+      - if: "sleep_hours < 6"
+        then:
+          intensity_cap: cap_at_zone_3
+          dominant_signal: sleep
+          reason: "Sleep deficit; recovery insufficient for above-aerobic work"
+          recommend: [walk30, mobility20, z2_ride45]
+          views: [sleep_stages, hrv_trend]
+      - if: "resting_hr_today > resting_hr_baseline + 5"
+        then:
+          intensity_cap: cap_at_zone_3
+          dominant_signal: rhr
+          reason: "Resting HR elevated >5bpm vs baseline; possible accumulating fatigue"
+          recommend: [walk30, mobility20, z2_ride45]
+          views: [rhr_drift, hrv_trend]
+      - if: "carbohydrates_today < 100 and len(workouts_today) == 0"
+        then:
+          intensity_cap: zone_2_only
+          dominant_signal: fueling
+          reason: "Under-fueled for above-aerobic work today"
+          recommend: [walk30, mobility20, z2_ride45]
+      - else:
+          intensity_cap: full_protocol
+          dominant_signal: composite
+          reason: "Recovery markers within range, fueled, capacity available"
+          recommend: [z2_ride45, z2_ride75, strength_pull, strength_push, hiit_intervals20]
+    output:
+      style: "live readiness check, 2-3 sentences. Pick exactly ONE recommendation from the eligible list and explain why given the current time of day, what's already been done, and current fueling. Do not invent options outside the list."
+      mention:
+        - dominant_signal
+        - reason
 
   post_workout_debrief:
     cadence: on_workout_complete

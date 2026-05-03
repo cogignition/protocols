@@ -170,6 +170,27 @@
         }
       ]
     },
+    "exercise": {
+      "type": "object",
+      "required": ["id", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "id":           { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$" },
+        "label":        { "type": "string", "minLength": 1 },
+        "description":  { "type": "string" },
+        "duration_min": { "type": "number", "minimum": 0 },
+        "intensity": {
+          "type": "string",
+          "enum": ["none", "zone_1", "zone_2", "zone_3", "zone_4_5", "anaerobic", "mixed"]
+        },
+        "fatigue": {
+          "type": "string",
+          "enum": ["none", "minimal", "low", "medium", "high", "very_high"]
+        },
+        "modality": { "type": "string", "description": "Free-form modality tag — bike, run, strength, mobility, yoga, etc." },
+        "when":     { "type": "string", "description": "Free-form prerequisite hint surfaced to the LLM (e.g. 'fed within 90 min')." }
+      }
+    },
     "view": {
       "type": "object",
       "required": ["id", "kind", "window", "series"],
@@ -281,6 +302,11 @@
       "type": "array",
       "description": "Optional chart specs. Each entry declares a deterministic time-series view that runtimes can render via Swift Charts (or any other charting toolkit). Workflow rules can reference views by id to surface them alongside the brief.",
       "items": { "$ref": "#/$defs/view" }
+    },
+    "exercises": {
+      "type": "array",
+      "description": "Optional menu of exercises this protocol can recommend. Workflow rules narrow the eligible subset via a `recommend: [id, ...]` field on the decision payload; the runtime's edge model then picks one given current context.",
+      "items": { "$ref": "#/$defs/exercise" }
     },
     "workflows": {
       "type": "object",
