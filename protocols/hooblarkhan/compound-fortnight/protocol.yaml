@@ -113,11 +113,6 @@ inputs:
     window: today
     field: zone_2
 
-  hr_max_today:
-    metric: heart_rate
-    aggregation: max
-    window: today
-
   # Subjective self-report — surfaced to the runtime via the
   # mood/fatigue/soreness logging UI (issue HUB-?? — UI not yet
   # built; until then these will resolve as missing).
@@ -402,19 +397,10 @@ workflows:
       - steps_today
       - active_energy_today
       - z2_minutes_today
-      - hr_max_today
       - hour_of_day
     views:
       - hrv_trend
     rules:
-      - if: "hr_max_today >= 190"
-        then:
-          tier: ceiling_hit
-          intensity_cap: zone_2_only
-          dominant_signal: hr_ceiling
-          reason: "Peak HR hit the personal Z5 ceiling (190 bpm) — finish in-workout in Z2 intervals; no further Z4/Z5 work today."
-          recommend: [zone2_recovery, daily_walking]
-          views: [hrv_trend, zone_minutes_14d]
       - if: "len(workouts_today) >= 2"
         then:
           tier: workload_capped
