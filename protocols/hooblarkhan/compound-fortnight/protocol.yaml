@@ -46,7 +46,7 @@ zones:
   z2: { max_hr: 139, label: "Aerobic / Zone 2" }
   z3: { max_hr: 164, label: "Tempo / Zone 3" }
   z4: { max_hr: 179, label: "Threshold / Zone 4" }
-  z5: { max_hr: 240, label: "VO2 / Zone 5" }
+  z5: { max_hr: 190, label: "VO2 / Zone 5 — personal ceiling" }
 
 # Inputs declare what data the protocol reads. Each entry maps a local
 # name to a metric query against the canonical vocabulary.
@@ -112,6 +112,11 @@ inputs:
     aggregation: sum
     window: today
     field: zone_2
+
+  hr_max_today:
+    metric: heart_rate
+    aggregation: max
+    window: today
 
   # Subjective self-report — surfaced to the runtime via the
   # mood/fatigue/soreness logging UI (issue HUB-?? — UI not yet
@@ -397,10 +402,19 @@ workflows:
       - steps_today
       - active_energy_today
       - z2_minutes_today
+      - hr_max_today
       - hour_of_day
     views:
       - hrv_trend
     rules:
+      - if: "hr_max_today >= 190"
+        then:
+          tier: ceiling_hit
+          intensity_cap: rest
+          dominant_signal: hr_ceiling
+          reason: "Peak HR hit the personal Z5 ceiling (190 bpm) today — tap the brakes; recovery only for the rest of the day."
+          recommend: [rest, daily_walking, mobility20]
+          views: [hrv_trend, zone_minutes_14d]
       - if: "len(workouts_today) >= 2"
         then:
           tier: workload_capped
