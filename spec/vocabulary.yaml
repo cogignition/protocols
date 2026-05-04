@@ -119,6 +119,38 @@ metrics:
     aggregations: [sum, mean]
     typical_range: [0, 720]
 
+  # ===== Subjective / self-report =====
+
+  mood:
+    description: Self-rated mood, 1 (low) to 10 (high)
+    kind: scalar
+    unit: count
+    aggregations: [latest, mean]
+    typical_range: [1, 10]
+
+  fatigue:
+    description: Self-rated fatigue, 1 (none) to 10 (extreme)
+    kind: scalar
+    unit: count
+    aggregations: [latest, mean]
+    typical_range: [1, 10]
+
+  soreness:
+    description: Self-rated muscle soreness, 1 (none) to 10 (severe)
+    kind: scalar
+    unit: count
+    aggregations: [latest, mean]
+    typical_range: [1, 10]
+
+  # ===== Synthetic / context =====
+
+  time_of_day:
+    description: Local hour-of-day at evaluation time (0..23, fractional). Synthetic — runtimes resolve from system clock; no adapter implements it.
+    kind: scalar
+    unit: hour
+    aggregations: [latest]
+    typical_range: [0, 24]
+
   # ===== Body composition =====
 
   body_mass:

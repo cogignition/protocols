@@ -1,0 +1,490 @@
+# Hooblarkhan — Compound Fortnight.
+#
+# Lived protocol from blog.cogignition.cloud, encoded against the
+# Hegemonikron spec. The compound is a single workout with three
+# phases — kettlebell density block, recovery buffer, HR-rule HIIT.
+# A polarized variant exists for moderate-readiness days. Daily
+# walking accumulates Z2 minutes outside the compound; when the
+# walking ledger is already heavy, the polarized variant relents to
+# an evening HIIT block alone.
+#
+# Source-of-truth notes:
+# - blog.cogignition.cloud/notes/2026-04-26-the-body-is-the-clock/   pyramidal compound shape
+# - blog.cogignition.cloud/notes/2026-04-27-where-this-fits/         polarized compound shape
+# - blog.cogignition.cloud/notes/2026-04-29-polarized-4/             pre-registered polarized session
+# - Knowledge/Protocol.md                                            objective + framework
+# - Impey et al. 2018, "Fuel for the Work Required"                  carb periodization rationale
+
+apiVersion: hegemonikron.cogignition.cloud/v1
+kind: Protocol
+
+metadata:
+  id: compound-fortnight
+  title: "Compound Fortnight"
+  author: hooblarkhan
+  license: CC-BY-4.0
+  created: "2026-05-03"
+  version: "0.1"
+  description: >
+    Body recomposition, strength maintenance, and mitochondrial
+    enhancement. HRV-gated daily decision picks one of three day
+    shapes: pyramidal compound (KB → buffer → HR-rule HIIT) on
+    high-readiness days, polarized compound (Z2 base + interval
+    blowout) on moderate days, recovery (Z2 cardio + walking) on
+    low days. Daily walking maintains a 7d-average 8k-step floor.
+    Carbs are periodized to session demand; protein is constant.
+  references:
+    - https://blog.cogignition.cloud/notes/2026-04-26-the-body-is-the-clock/
+    - https://blog.cogignition.cloud/notes/2026-04-27-where-this-fits/
+    - https://blog.cogignition.cloud/notes/2026-04-29-polarized-4/
+    - https://doi.org/10.1007/s40279-018-0867-7
+
+# Heart-rate zones — parametric. Boundaries match the lived protocol
+# observed in workout_hr.hr_avg per-minute distributions on the blog.
+zones:
+  z1: { max_hr: 109, label: "Below aerobic" }
+  z2: { max_hr: 139, label: "Aerobic / Zone 2" }
+  z3: { max_hr: 164, label: "Tempo / Zone 3" }
+  z4: { max_hr: 179, label: "Threshold / Zone 4" }
+  z5: { max_hr: 240, label: "VO2 / Zone 5" }
+
+# Inputs declare what data the protocol reads. Each entry maps a local
+# name to a metric query against the canonical vocabulary.
+inputs:
+  hrv_today:
+    metric: hrv
+    aggregation: latest
+
+  hrv_baseline:
+    metric: hrv
+    aggregation: mean
+    window: 14d
+
+  sleep_hours:
+    metric: sleep_total
+    aggregation: latest
+
+  sleep_deep_hours:
+    metric: sleep_deep
+    aggregation: latest
+
+  resting_hr_today:
+    metric: resting_heart_rate
+    aggregation: latest
+
+  resting_hr_baseline:
+    metric: resting_heart_rate
+    aggregation: mean
+    window: 14d
+
+  workouts_today:
+    metric: workout
+    aggregation: list
+    window: today
+
+  protein_today:
+    metric: protein
+    aggregation: sum
+    window: today
+
+  carbohydrates_today:
+    metric: carbohydrates
+    aggregation: sum
+    window: today
+
+  steps_today:
+    metric: step_count
+    aggregation: sum
+    window: today
+
+  steps_7d_avg:
+    metric: step_count
+    aggregation: mean
+    window: 7d
+
+  active_energy_today:
+    metric: active_energy
+    aggregation: sum
+    window: today
+
+  z2_minutes_today:
+    metric: workout_hr_zone_minutes
+    aggregation: sum
+    window: today
+    field: zone_2
+
+  # Subjective self-report — surfaced to the runtime via the
+  # mood/fatigue/soreness logging UI (issue HUB-?? — UI not yet
+  # built; until then these will resolve as missing).
+  mood_today:
+    metric: mood
+    aggregation: latest
+    window: today
+
+  fatigue_today:
+    metric: fatigue
+    aggregation: latest
+    window: today
+
+  soreness_today:
+    metric: soreness
+    aggregation: latest
+    window: today
+
+  hour_of_day:
+    metric: time_of_day
+    aggregation: latest
+
+# The compound, in two shapes, plus the supporting modalities.
+exercises:
+
+  - id: pyramidal_compound
+    label: "Pyramidal compound (KB → buffer → HR-rule HIIT)"
+    description: >
+      The high-readiness day shape. ~90 min total. Distribution
+      across Z2/Z3/Z4 observed at ~25% / 53% / 19%. Reserved for
+      two-green mornings preceded by a restoration night.
+    duration_min: 90
+    intensity: mixed
+    fatigue: very_high
+    modality: compound
+    when: "two-green morning + restoration night; 150–180g carbs in the day"
+    phases:
+      - name: kb_block
+        label: "Kettlebell density block"
+        duration_min: 30
+        intensity: zone_3
+        description: "10×10 or 12×10 heavy KB swings, oscillating HR 130–165, treated as a strength-density block."
+      - name: buffer
+        label: "Recovery buffer"
+        duration_min: 12
+        intensity: zone_2
+        description: "Wait for HR to drop ≥50 bpm from KB peak; target 110–130 before the HIIT block begins."
+      - name: hr_rule_hiit
+        label: "HR-rule HIIT"
+        duration_min: 35
+        intensity: zone_4_5
+        description: "Five cycles of: 3mph 0% until HR ≥ 170; 3mph 10% until HR ≥ 180; 1mph 0% until HR ≤ 140 (sustained two beats); repeat. Cycle count is a fitness readout, not a target. Block ends at the 30–35 min budget or when within-minute peak fails to reach 180 inside 5 minutes from the recovery floor."
+
+  - id: polarized_compound
+    label: "Polarized compound (Z2 base + interval blowout)"
+    description: >
+      The moderate-readiness day shape. ~90–100 min total.
+      Distribution across Z2/Z3/Z4 observed at ~70% / 18% / 10%.
+      Lower allostatic cost than the pyramidal variant.
+    duration_min: 95
+    intensity: mixed
+    fatigue: medium
+    modality: compound
+    when: "one-green or unmeasured morning; 100–130g carbs in the day"
+    phases:
+      - name: z2_base
+        label: "Z2 treadmill base"
+        duration_min: 60
+        intensity: zone_2
+        description: "Sustained Z2 walking at HR ~130, target band 110–140; modality and grade flex to hold the band."
+      - name: interval_blowout
+        label: "Interval blowout finish"
+        duration_min: 30
+        intensity: zone_4_5
+        description: "3–4 cycles peaking 170–180 bpm, ~30s–2min each, separated by 3–5 min Z2 recovery."
+
+  - id: evening_hiit_only
+    label: "Evening HIIT block (Z2 already banked)"
+    description: >
+      When the polarized variant's Z2 base is effectively pre-banked
+      via daily walking (>60 minutes Z2 already accumulated today),
+      the evening session collapses to just the interval blowout
+      block.
+    duration_min: 30
+    intensity: zone_4_5
+    fatigue: medium
+    modality: compound
+    when: "z2_minutes_today >= 60 and full_protocol unlocked"
+
+  - id: zone2_recovery
+    label: "Zone 2 cardio (recovery prescription)"
+    description: "30 min sustained at HR 110–130; modality, speed, grade flex. Distinct from the polarized compound's Z2 base — this is the recovery-day prescription."
+    duration_min: 30
+    intensity: zone_2
+    fatigue: minimal
+    modality: cardio
+
+  - id: daily_walking
+    label: "Daily walking (Z1/Z2 ledger)"
+    description: "Outdoor walking accumulating toward a 7-day-average 8,000 step/day floor. Stationary modalities don't generate steps; this is a separate ledger."
+    duration_min: 30
+    intensity: zone_1
+    fatigue: minimal
+    modality: walk
+
+  - id: mobility20
+    label: "20-min mobility flow"
+    description: "Hip openers, thoracic mobility, ankle work, light core."
+    duration_min: 20
+    intensity: zone_1
+    fatigue: minimal
+    modality: mobility
+
+  - id: rest
+    label: "Rest the rest of today"
+    description: "No structured exercise — passive recovery."
+    duration_min: 0
+    intensity: none
+    fatigue: none
+
+# Views — chart specs surfaced alongside the brief.
+views:
+
+  - id: hrv_trend
+    title: "HRV — 14d trend vs fortnight baseline"
+    kind: line
+    window: { duration: 14d, step: 1d }
+    series:
+      - metric: hrv
+        aggregate: daily_mean
+        style: { role: primary }
+      - derived: rolling_mean
+        of: hrv
+        window: 14d
+        style: { role: baseline, dash: true }
+      - derived: rolling_band
+        of: hrv
+        window: 14d
+        kind: stddev
+        k: 1.0
+        style: { role: band, opacity: 0.15 }
+    axes:
+      x: { kind: time, format: "M.d" }
+      y: { kind: numeric, unit: ms, zero: false }
+
+  - id: zone_minutes_14d
+    title: "Zone minutes — last 14 days"
+    kind: stacked_bar
+    window: { duration: 14d, step: 1d }
+    series:
+      - metric: workout_hr_zone_minutes
+        aggregate: sum
+        group_by: zone
+    axes:
+      x: { kind: time, format: "M.d" }
+      y: { kind: numeric, unit: min }
+
+  - id: rhr_drift
+    title: "Resting HR — drift vs baseline"
+    kind: line
+    window: { duration: 14d, step: 1d }
+    series:
+      - metric: resting_heart_rate
+        aggregate: daily_mean
+        style: { role: primary }
+      - derived: rolling_mean
+        of: resting_heart_rate
+        window: 14d
+        style: { role: baseline, dash: true }
+    annotations:
+      - kind: rule_h
+        value_from: { protocol_input: resting_hr_baseline, offset: 5 }
+        label: "+5 bpm gate"
+        style: { role: warning }
+    axes:
+      x: { kind: time, format: "M.d" }
+      y: { kind: numeric, unit: bpm, zero: false }
+
+  - id: steps_7d
+    title: "Daily steps — 7d average vs 8k floor"
+    kind: bar
+    window: { duration: 14d, step: 1d }
+    series:
+      - metric: step_count
+        aggregate: sum
+        style: { role: primary }
+      - derived: rolling_mean
+        of: step_count
+        window: 7d
+        style: { role: baseline, dash: true }
+    annotations:
+      - kind: rule_h
+        value: 8000
+        label: "8k floor"
+        style: { role: accent }
+    axes:
+      x: { kind: time, format: "M.d" }
+      y: { kind: numeric, unit: steps }
+
+# Workflows.
+workflows:
+
+  morning_readiness:
+    cadence: daily@07:30
+    inputs:
+      - hrv_today
+      - hrv_baseline
+      - sleep_hours
+      - resting_hr_today
+      - resting_hr_baseline
+      - mood_today
+      - fatigue_today
+      - soreness_today
+    views:
+      - hrv_trend
+    rules:
+      - if: "hrv_today / hrv_baseline >= 1.0 and sleep_hours >= 7 and resting_hr_today <= resting_hr_baseline"
+        then:
+          tier: two_green_pyramidal
+          intensity_cap: full_protocol
+          dominant_signal: composite
+          carbs_target_g: { range: [150, 180] }
+          protein_target_g: { range: [180, 200] }
+          reason: "HRV at or above fortnight baseline, ≥7h sleep, RHR not elevated — restoration-night day. Pyramidal compound unlocked."
+          recommend: [pyramidal_compound]
+          views: [hrv_trend, zone_minutes_14d]
+      - if: "hrv_today / hrv_baseline < 0.85"
+        then:
+          tier: low_recovery
+          intensity_cap: zone_2_only
+          dominant_signal: hrv
+          carbs_target_g: { range: [60, 90] }
+          protein_target_g: { range: [180, 200] }
+          reason: "HRV below 85% of fortnight baseline — recovery emphasis."
+          recommend: [zone2_recovery, daily_walking, mobility20]
+          views: [hrv_trend, rhr_drift]
+      - if: "sleep_hours < 6"
+        then:
+          tier: low_recovery
+          intensity_cap: zone_2_only
+          dominant_signal: sleep
+          carbs_target_g: { range: [60, 90] }
+          protein_target_g: { range: [180, 200] }
+          reason: "Sleep deficit overrides any HR signal — Z2 only."
+          recommend: [zone2_recovery, daily_walking, mobility20]
+      - if: "resting_hr_today > resting_hr_baseline + 5"
+        then:
+          tier: low_recovery
+          intensity_cap: cap_at_zone_3
+          dominant_signal: rhr
+          carbs_target_g: { range: [60, 90] }
+          protein_target_g: { range: [180, 200] }
+          reason: "Resting HR elevated >5bpm vs baseline — accumulating fatigue suspected."
+          recommend: [zone2_recovery, daily_walking, mobility20]
+      - else:
+          tier: one_green_polarized
+          intensity_cap: cap_at_zone_4
+          dominant_signal: composite
+          carbs_target_g: { range: [100, 130] }
+          protein_target_g: { range: [180, 200] }
+          reason: "One-green or unmeasured — polarized compound fits."
+          recommend: [polarized_compound, daily_walking]
+          views: [hrv_trend]
+    output:
+      style: "morning brief, 3 sentences, no filler, no hedging"
+      mention:
+        - tier
+        - dominant_signal
+        - reason
+
+  in_flight_check:
+    cadence: on_demand
+    inputs:
+      - hrv_today
+      - hrv_baseline
+      - sleep_hours
+      - resting_hr_today
+      - resting_hr_baseline
+      - workouts_today
+      - protein_today
+      - carbohydrates_today
+      - steps_today
+      - active_energy_today
+      - z2_minutes_today
+      - hour_of_day
+    views:
+      - hrv_trend
+    rules:
+      - if: "len(workouts_today) >= 2"
+        then:
+          tier: workload_capped
+          intensity_cap: rest
+          dominant_signal: workload
+          reason: "Two-a-day already complete; cap further work."
+          recommend: [rest, daily_walking, mobility20]
+      - if: "hrv_today / hrv_baseline < 0.85"
+        then:
+          tier: low_recovery
+          intensity_cap: zone_2_only
+          dominant_signal: hrv
+          reason: "HRV below 85% of fortnight baseline."
+          recommend: [zone2_recovery, daily_walking, mobility20]
+          views: [hrv_trend]
+      - if: "z2_minutes_today >= 60 and hour_of_day >= 16 and len(workouts_today) == 0"
+        then:
+          tier: evening_hiit_only
+          intensity_cap: full_protocol
+          dominant_signal: walking_ledger
+          reason: "Z2 ledger already > 60 min today via walking; evening session collapses to the interval block."
+          recommend: [evening_hiit_only]
+          views: [zone_minutes_14d]
+      - if: "carbohydrates_today < 100 and len(workouts_today) == 0"
+        then:
+          tier: under_fueled
+          intensity_cap: zone_2_only
+          dominant_signal: fueling
+          reason: "Carbs under 100g and no workout yet — under-fueled for above-aerobic work."
+          recommend: [zone2_recovery, daily_walking, mobility20]
+      - else:
+          tier: composite_green
+          intensity_cap: full_protocol
+          dominant_signal: composite
+          reason: "Recovery markers in range, fueled, capacity available."
+          recommend: [pyramidal_compound, polarized_compound, daily_walking]
+    output:
+      style: "live readiness check, 2-3 sentences. Pick exactly ONE recommendation from the eligible list and explain why given current time of day, accumulated walking, and intake. Do not invent options outside the list."
+      mention:
+        - tier
+        - dominant_signal
+        - reason
+
+  evening_check:
+    cadence: daily@20:00
+    inputs:
+      - workouts_today
+      - protein_today
+      - carbohydrates_today
+      - steps_today
+      - z2_minutes_today
+    rules:
+      - if: "protein_today < 180"
+        then:
+          status: protein_gap
+          gap_g: 180
+          note: "Hit 180g protein floor before sleep."
+      - if: "len(workouts_today) >= 2"
+        then:
+          status: two_a_day_complete
+          note: "Two-a-day complete; cap further work tomorrow at moderate."
+      - if: "steps_today < 6000 and z2_minutes_today < 30"
+        then:
+          status: ledger_short
+          note: "Walking ledger short today — flag tomorrow's morning brief."
+      - else:
+          status: on_track
+          note: "On track — no flags."
+    output:
+      style: "evening check-in, 2 sentences"
+      mention:
+        - status
+        - note
+
+  post_workout_debrief:
+    cadence: on_workout_complete
+    inputs:
+      - workouts_today
+      - hrv_today
+      - z2_minutes_today
+    rules:
+      - else:
+          phase: review
+    output:
+      style: "post-workout analysis, 4-6 sentences"
+      mention:
+        - workouts_today

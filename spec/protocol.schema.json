@@ -170,6 +170,30 @@
         }
       ]
     },
+    "zoneSpec": {
+      "type": "object",
+      "required": ["max_hr"],
+      "additionalProperties": false,
+      "properties": {
+        "max_hr": { "type": "number", "minimum": 0, "description": "Upper bound (inclusive) of this zone in bpm. Lower bound is the previous zone's max_hr + 1, or 0 for the first zone." },
+        "label":  { "type": "string" }
+      }
+    },
+    "phase": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name":         { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$" },
+        "label":        { "type": "string" },
+        "description":  { "type": "string" },
+        "duration_min": { "type": "number", "minimum": 0 },
+        "intensity": {
+          "type": "string",
+          "enum": ["none", "zone_1", "zone_2", "zone_3", "zone_4_5", "anaerobic", "mixed"]
+        }
+      }
+    },
     "exercise": {
       "type": "object",
       "required": ["id", "label"],
@@ -187,8 +211,13 @@
           "type": "string",
           "enum": ["none", "minimal", "low", "medium", "high", "very_high"]
         },
-        "modality": { "type": "string", "description": "Free-form modality tag — bike, run, strength, mobility, yoga, etc." },
-        "when":     { "type": "string", "description": "Free-form prerequisite hint surfaced to the LLM (e.g. 'fed within 90 min')." }
+        "modality": { "type": "string", "description": "Free-form modality tag — bike, run, strength, mobility, yoga, compound, etc." },
+        "when":     { "type": "string", "description": "Free-form prerequisite hint surfaced to the LLM (e.g. 'fed within 90 min')." },
+        "phases": {
+          "type": "array",
+          "description": "Optional ordered phases that make up this exercise — kb_block / buffer / hr_rule_hiit, etc. Each phase is itself shaped like a (lighter) exercise.",
+          "items": { "$ref": "#/$defs/phase" }
+        }
       }
     },
     "view": {
@@ -297,6 +326,12 @@
           }
         }
       }
+    },
+    "zones": {
+      "type": "object",
+      "description": "Optional parametric heart-rate zone declaration. Keys are zone ids (z1..z5 conventional, but any matching ^[a-z0-9][a-z0-9_-]*$ is accepted). The runtime resolves boundaries by sorting on max_hr ascending; the lower bound of each zone is (previous_max_hr + 1) or 0 for the lowest. Used by views and rules that reference zone-bucketed minutes.",
+      "additionalProperties": { "$ref": "#/$defs/zoneSpec" },
+      "propertyNames": { "pattern": "^[a-z0-9][a-z0-9_-]*$" }
     },
     "views": {
       "type": "array",
