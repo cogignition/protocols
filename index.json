@@ -1,0 +1,82 @@
+{
+  "apiVersion": "hegemonikron.cogignition.cloud/v1",
+  "kind": "Index",
+  "generated_at": "2026-05-04T00:31:14+00:00",
+  "protocols": [
+    {
+      "author": "cogignition",
+      "slug": "zone2-fortnight",
+      "title": "Zone 2 Base with Fortnight HRV Gate",
+      "description": "14-day rolling HRV baseline gates above-Zone-2 work. Zone 4 / Zone 5 sessions are unlocked only when the day's HRV is within 85% of the fortnight mean and last night's sleep is at least 6 hours. Two-a-days are permitted when the morning brief returns full_protocol; the evening session is capped at Zone 3 regardless.\nBuilt on Galpin / Norton periodization principles plus the carb periodization framework (Impey et al. 2018, \"Fuel for the Work Required\").",
+      "license": "CC-BY-4.0",
+      "version": "0.1",
+      "created": "2026-05-03",
+      "references": [
+        "https://blog.cogignition.cloud/notes/2026-04-19-galpin-summary/",
+        "https://protocols.cogignition.cloud/cogignition/zone2-fortnight/",
+        "https://github.com/cogignition/hegemonikron-spec"
+      ],
+      "path": "protocols/cogignition/zone2-fortnight/protocol.yaml",
+      "raw_url": "https://raw.githubusercontent.com/cogignition/protocols/main/protocols/cogignition/zone2-fortnight/protocol.yaml",
+      "workflows": [
+        "evening_check",
+        "in_flight_check",
+        "morning_readiness",
+        "post_workout_debrief"
+      ],
+      "views": [
+        "hrv_trend",
+        "sleep_stages",
+        "rhr_drift"
+      ],
+      "exercises": [
+        "rest",
+        "walk30",
+        "mobility20",
+        "z2_ride45",
+        "z2_ride75",
+        "strength_pull",
+        "strength_push",
+        "hiit_intervals20"
+      ]
+    },
+    {
+      "author": "hooblarkhan",
+      "slug": "compound-fortnight",
+      "title": "Compound Fortnight",
+      "description": "Body recomposition, strength maintenance, and mitochondrial enhancement. HRV-gated daily decision picks one of three day shapes: pyramidal compound (KB \u2192 buffer \u2192 HR-rule HIIT) on high-readiness days, polarized compound (Z2 base + interval blowout) on moderate days, recovery (Z2 cardio + walking) on low days. Daily walking maintains a 7d-average 8k-step floor. Carbs are periodized to session demand; protein is constant.",
+      "license": "CC-BY-4.0",
+      "version": "0.1",
+      "created": "2026-05-03",
+      "references": [
+        "https://blog.cogignition.cloud/notes/2026-04-26-the-body-is-the-clock/",
+        "https://blog.cogignition.cloud/notes/2026-04-27-where-this-fits/",
+        "https://blog.cogignition.cloud/notes/2026-04-29-polarized-4/",
+        "https://doi.org/10.1007/s40279-018-0867-7"
+      ],
+      "path": "protocols/hooblarkhan/compound-fortnight/protocol.yaml",
+      "raw_url": "https://raw.githubusercontent.com/cogignition/protocols/main/protocols/hooblarkhan/compound-fortnight/protocol.yaml",
+      "workflows": [
+        "evening_check",
+        "in_flight_check",
+        "morning_readiness",
+        "post_workout_debrief"
+      ],
+      "views": [
+        "hrv_trend",
+        "zone_minutes_14d",
+        "rhr_drift",
+        "steps_7d"
+      ],
+      "exercises": [
+        "pyramidal_compound",
+        "polarized_compound",
+        "evening_hiit_only",
+        "zone2_recovery",
+        "daily_walking",
+        "mobility20",
+        "rest"
+      ]
+    }
+  ]
+}

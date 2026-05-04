@@ -22,3 +22,6 @@ jobs:
 
       - name: validate all protocols
         run: python tools/validate.py
+
+      - name: check index.json freshness
+        run: python tools/build_index.py --check
