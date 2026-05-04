@@ -410,10 +410,10 @@ workflows:
       - if: "hr_max_today >= 190"
         then:
           tier: ceiling_hit
-          intensity_cap: rest
+          intensity_cap: zone_2_only
           dominant_signal: hr_ceiling
-          reason: "Peak HR hit the personal Z5 ceiling (190 bpm) today — tap the brakes; recovery only for the rest of the day."
-          recommend: [rest, daily_walking, mobility20]
+          reason: "Peak HR hit the personal Z5 ceiling (190 bpm) — finish in-workout in Z2 intervals; no further Z4/Z5 work today."
+          recommend: [zone2_recovery, daily_walking]
           views: [hrv_trend, zone_minutes_14d]
       - if: "len(workouts_today) >= 2"
         then:
