@@ -135,6 +135,57 @@ inputs:
     metric: time_of_day
     aggregation: latest
 
+  # ----- Runtime-state inputs (HUB-69 + HUB-75 dependencies) -----
+  # These resolve against stored brief history rather than HealthKit.
+  # Until HUB-75's LocalStateClient lands, they read as missing and
+  # the rules referencing them are skipped (HUB-58 graceful path).
+
+  days_since_refeed:
+    metric: __workflow_last_fired
+    field: refeed_check
+    aggregation: days_ago
+
+  days_since_microindulgence:
+    metric: __workflow_last_fired
+    field: microindulgence_decision
+    aggregation: days_ago
+
+  days_since_gluttony:
+    metric: __workflow_last_fired
+    field: gluttony_decision
+    aggregation: days_ago
+
+  protein_floor_streak:
+    metric: __decision_tier_streak
+    field: protein_target_met
+    aggregation: latest
+
+  walking_8k_streak:
+    metric: __decision_tier_streak
+    field: walking_8k_met
+    aggregation: latest
+
+  cumulative_kcal_balance_7d:
+    metric: __input_cumulative
+    field: kcal_balance
+    aggregation: sum
+    window: 7d
+
+  hrv_pre_wake_max_today:
+    metric: __signal_history
+    field: hrv_pre_wake_max
+    aggregation: latest
+
+  hrv_overnight_recovery_today:
+    metric: __signal_history
+    field: hrv_overnight_recovery
+    aggregation: latest
+
+  next_morning_hrv_bounce:
+    metric: __outcome_history
+    field: next_morning_hrv_bounce
+    aggregation: latest
+
 # The compound, in two shapes, plus the supporting modalities.
 exercises:
 
@@ -480,11 +531,222 @@ workflows:
     inputs:
       - workouts_today
       - hrv_today
+      - hrv_baseline
       - z2_minutes_today
+      - protein_today
+      - carbohydrates_today
+    views:
+      - hrv_trend
+      - zone_minutes_14d
     rules:
       - else:
           phase: review
+          analysis_kind: full_session
     output:
-      style: "post-workout analysis, 4-6 sentences"
+      style: "post-workout analysis, 4-6 sentences. Cite the workout's zone distribution and the HR-rule readouts (time-to-threshold, recovery slope, cycle count) when they're computed. Compare to recent sessions where relevant. Match the voice of blog.cogignition.cloud/workouts."
       mention:
         - workouts_today
+        - phase
+
+  # --- Pre-workout: triggered by calendar event (HUB-76 runtime) ---
+  fueling_window:
+    cadence: "calendar_event:workout@offset=-90m"
+    inputs:
+      - hrv_today
+      - hrv_baseline
+      - sleep_hours
+      - protein_today
+      - carbohydrates_today
+      - hour_of_day
+    rules:
+      - if: "carbohydrates_today < 80 and hrv_today / hrv_baseline >= 0.85"
+        then:
+          tier: pre_fuel_now
+          reason: "Workout in 90 min and carbs low — fuel before starting."
+          carbs_target_g: { range: [40, 70] }
+          protein_target_g: 30
+      - if: "sleep_hours < 6"
+        then:
+          tier: deload_session
+          reason: "Sleep deficit; downgrade today's session before warm-up."
+      - else:
+          tier: ready
+          reason: "On-track for the planned session."
+    output:
+      style: "pre-workout brief, 2 sentences. Be concrete about timing and amounts."
+      mention:
+        - tier
+        - reason
+
+  # --- Sleep-end synthesis (HUB-71 anchors dependency) ---
+  overnight_recovery_summary:
+    cadence: on_sleep_end
+    inputs:
+      - hrv_pre_wake_max_today
+      - hrv_overnight_recovery_today
+      - hrv_baseline
+      - sleep_hours
+      - sleep_deep_hours
+    views:
+      - hrv_trend
+    rules:
+      - if: "hrv_pre_wake_max_today / hrv_baseline >= 1.3"
+        then:
+          tier: restoration_night
+          dominant_signal: hrv_pre_wake_max
+          reason: "HRV peaked well above fortnight baseline before waking — restoration confirmed."
+      - if: "hrv_overnight_recovery_today < 0"
+        then:
+          tier: stalled_recovery
+          dominant_signal: overnight_delta
+          reason: "HRV did not rise during sleep — sympathetic load persisted overnight."
+      - else:
+          tier: standard_recovery
+          dominant_signal: composite
+          reason: "Recovery within typical range."
+    output:
+      style: "overnight summary, 2-3 sentences. Quote the pre-wake max in ms and compare to baseline."
+      mention:
+        - tier
+        - dominant_signal
+
+  # --- Cyclical: refeed eligibility (HUB-69 + HUB-75 dependency) ---
+  refeed_check:
+    cadence: daily@17:00
+    inputs:
+      - days_since_refeed
+      - cumulative_kcal_balance_7d
+      - hrv_today
+      - hrv_baseline
+    rules:
+      - if: "days_since_refeed >= 14"
+        then:
+          eligible: true
+          reason: "Max-gap reached — refeed today regardless of other signals."
+          target_carbs_delta_g: 120
+          target_kcal_delta: 750
+      - if: "days_since_refeed >= 10 and cumulative_kcal_balance_7d <= -3500"
+        then:
+          eligible: true
+          reason: "Cycle window open and weekly deficit ≥ 3500 kcal — refeed indicated."
+          target_carbs_delta_g: 100
+          target_kcal_delta: 600
+      - else:
+          eligible: false
+          reason: "Cycle floor not yet reached or deficit insufficient."
+    output:
+      style: "refeed call, 1-2 sentences. Be a coach, not a logbook."
+      mention:
+        - eligible
+        - reason
+
+  # --- Cyclical: microindulgence eligibility ---
+  microindulgence_decision:
+    cadence: weekly@friday@17:00
+    inputs:
+      - days_since_microindulgence
+      - protein_floor_streak
+      - walking_8k_streak
+    rules:
+      - if: "days_since_microindulgence >= 7 and protein_floor_streak >= 5 and walking_8k_streak >= 5"
+        then:
+          eligible: true
+          reason: "Compliance held through the week — one indulgence permitted this weekend."
+      - else:
+          eligible: false
+          reason: "Streak incomplete or already used this cycle."
+    output:
+      style: "microindulgence call, 1 sentence."
+      mention:
+        - eligible
+
+  # --- Cyclical: gluttony eligibility (12-week threshold) ---
+  gluttony_decision:
+    cadence: weekly@sunday@10:00
+    inputs:
+      - days_since_gluttony
+      - protein_floor_streak
+      - walking_8k_streak
+    rules:
+      - if: "days_since_gluttony >= 84 and protein_floor_streak >= 60 and walking_8k_streak >= 60"
+        then:
+          eligible: true
+          reason: "12 weeks of compliance — gluttony day unlocked."
+      - else:
+          eligible: false
+          reason: "Threshold not reached."
+    output:
+      style: "gluttony unlock note, 1 sentence."
+      mention:
+        - eligible
+
+  # --- Synthesis: end-of-week audit ---
+  compliance_audit:
+    cadence: weekly@sunday@17:00
+    inputs:
+      - protein_floor_streak
+      - walking_8k_streak
+      - cumulative_kcal_balance_7d
+    rules:
+      - if: "protein_floor_streak < 5"
+        then:
+          flag: protein_gap
+          severity: medium
+          reason: "Protein floor missed on multiple days this week."
+      - if: "walking_8k_streak < 4"
+        then:
+          flag: walking_gap
+          severity: medium
+          reason: "7-day walking average under 8k floor."
+      - else:
+          flag: none
+          severity: ok
+          reason: "Compliance ledger clean."
+    output:
+      style: "weekly compliance summary, 2-3 sentences."
+      mention:
+        - flag
+        - reason
+
+  # --- Synthesis: weekly recap (HUB-57 history dependency) ---
+  weekly_recap:
+    cadence: weekly@sunday@19:00
+    inputs:
+      - hrv_baseline
+    rules:
+      - else:
+          phase: synthesis
+          analysis_kind: weekly
+    output:
+      style: "weekly recap, blog-voice. ~6-10 sentences. Open with the dominant story (compliance / training shape / recovery trend), cite specific signals, end with the through-line for next week. Match blog.cogignition.cloud/notes."
+      mention:
+        - phase
+
+  # --- Synthesis: quarterly recap ---
+  quarterly_recap:
+    cadence: quarterly@last_sunday@18:00
+    inputs:
+      - hrv_baseline
+    rules:
+      - else:
+          phase: synthesis
+          analysis_kind: quarterly
+    output:
+      style: "quarterly recap, blog-voice. Long form (~15-25 sentences). Compress the cycle's training shape, recovery arc, body comp delta, and the falsification experiments worth flagging next quarter. Match blog.cogignition.cloud's quarterly-recap voice."
+      mention:
+        - phase
+
+  # --- Hand-off: external blog-author skill consumes the brief ---
+  blog_draft_trigger:
+    cadence: on_workout_complete
+    inputs:
+      - workouts_today
+    rules:
+      - else:
+          phase: handoff
+          target_skill: blog-author
+    output:
+      style: "single-sentence handoff note. Names the workout and signals worth featuring."
+      mention:
+        - phase
+        - target_skill

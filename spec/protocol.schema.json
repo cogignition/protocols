@@ -309,7 +309,7 @@
           },
           "aggregation": {
             "type": "string",
-            "enum": ["latest", "mean", "median", "min", "max", "sum", "count", "list"],
+            "enum": ["latest", "mean", "median", "min", "max", "sum", "count", "list", "days_ago"],
             "default": "latest"
           },
           "window": {

@@ -151,6 +151,51 @@ metrics:
     aggregations: [latest]
     typical_range: [0, 24]
 
+  # ===== Runtime-state metrics (history-derived; resolved against
+  # the local SQLite store rather than HealthKit) =====
+  #
+  # These let workflows reason about their own firing history,
+  # decision tier streaks, cumulative input totals, and signal /
+  # outcome histories — the substrate variable-cadence workflows
+  # (refeed every 10–14d, microindulgence weekly, gluttony at 12wk
+  # compliance) need without extending the spec's `cadence:` syntax.
+
+  __workflow_last_fired:
+    description: Days since a named workflow last fired (runtime-computed from briefs history).
+    kind: runtime_state
+    unit: days
+    aggregations: [days_ago, latest]
+
+  __decision_tier_count:
+    description: Number of times a named decision tier fired in the window.
+    kind: runtime_state
+    unit: count
+    aggregations: [count, sum]
+
+  __decision_tier_streak:
+    description: Consecutive days a named decision tier (or compliance condition) has held.
+    kind: runtime_state
+    unit: days
+    aggregations: [latest]
+
+  __input_cumulative:
+    description: Cumulative value of a named input across stored briefs over a window.
+    kind: runtime_state
+    unit: count
+    aggregations: [sum, mean]
+
+  __signal_history:
+    description: Historical value of a computed signal (HUB-71 dependency).
+    kind: runtime_state
+    unit: count
+    aggregations: [latest, mean, min, max]
+
+  __outcome_history:
+    description: Historical value of an outcome signal (HRV bounce, weekly RHR drift, etc).
+    kind: runtime_state
+    unit: count
+    aggregations: [latest, mean]
+
   # ===== Body composition =====
 
   body_mass:
@@ -252,6 +297,7 @@ aggregations:
   - sum         # sum across window
   - count       # number of points in window
   - list        # raw list of values (events: full event list)
+  - days_ago    # for runtime_state metrics: days since the named reference
 
 # Windows the spec defines (adapters MUST translate these to backend
 # semantics; the strings here are the canonical surface):

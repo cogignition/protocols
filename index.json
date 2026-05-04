@@ -1,7 +1,7 @@
 {
   "apiVersion": "hegemonikron.cogignition.cloud/v1",
   "kind": "Index",
-  "generated_at": "2026-05-04T00:31:14+00:00",
+  "generated_at": "2026-05-04T02:40:39+00:00",
   "protocols": [
     {
       "author": "cogignition",
@@ -57,10 +57,19 @@
       "path": "protocols/hooblarkhan/compound-fortnight/protocol.yaml",
       "raw_url": "https://raw.githubusercontent.com/cogignition/protocols/main/protocols/hooblarkhan/compound-fortnight/protocol.yaml",
       "workflows": [
+        "blog_draft_trigger",
+        "compliance_audit",
         "evening_check",
+        "fueling_window",
+        "gluttony_decision",
         "in_flight_check",
+        "microindulgence_decision",
         "morning_readiness",
-        "post_workout_debrief"
+        "overnight_recovery_summary",
+        "post_workout_debrief",
+        "quarterly_recap",
+        "refeed_check",
+        "weekly_recap"
       ],
       "views": [
         "hrv_trend",
